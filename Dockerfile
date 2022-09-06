@@ -1,13 +1,11 @@
-FROM tiredofit/debian:buster
+FROM node:16-buster
 LABEL maintainer="Dave Conroy (dave at tiredofit dot ca)"
 
 ### Set defaults
 ENV ASTERISK_VERSION=17.9.4 \
     BCG729_VERSION=1.0.4 \
     DONGLE_VERSION=20200610 \
-    G72X_CPUHOST=penryn \
     G72X_VERSION=0.1 \
-    MONGODB_VERSION=4.2 \
     PHP_VERSION=5.6 \
     SPANDSP_VERSION=20180108 \
     RTP_START=18000 \
@@ -22,11 +20,7 @@ RUN echo "Package: libxml2*" > /etc/apt/preferences.d/libxml2 && \
 ### Install dependencies
     set -x && \
     curl -sSLk https://packages.sury.org/php/apt.gpg | apt-key add - && \
-    curl -sSL https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add - && \
-    echo "deb https://deb.nodesource.com/node_10.x $(cat /etc/os-release |grep "VERSION=" | awk 'NR>1{print $1}' RS='(' FS=')') main" > /etc/apt/sources.list.d/nodejs.list && \
     echo "deb https://packages.sury.org/php/ buster main" > /etc/apt/sources.list.d/deb.sury.org.list && \
-    curl -sSLk https://www.mongodb.org/static/pgp/server-${MONGODB_VERSION}.asc | apt-key add - && \
-    echo "deb http://repo.mongodb.org/apt/debian buster/mongodb-org/${MONGODB_VERSION} main" > /etc/apt/sources.list.d/mongodb-org.list && \
     echo "deb http://ftp.us.debian.org/debian/ buster-backports main" > /etc/apt/sources.list.d/backports.list && \
     echo "deb-src http://ftp.us.debian.org/debian/ buster-backports main" >> /etc/apt/sources.list.d/backports.list && \
     apt-get update && \
@@ -131,10 +125,7 @@ RUN echo "Package: libxml2*" > /etc/apt/preferences.d/libxml2 && \
                     make \
                     mariadb-client \
                     mariadb-server \
-                    mongodb-org \
                     mpg123 \
-                    nodejs \
-                    odbc-mariadb \
                     php${PHP_VERSION} \
                     php${PHP_VERSION}-curl \
                     php${PHP_VERSION}-cli \
@@ -243,20 +234,9 @@ RUN echo "Package: libxml2*" > /etc/apt/preferences.d/libxml2 && \
     curl -sSLk https://bitbucket.org/arkadi/asterisk-g72x/get/master.tar.gz | tar xvfz - --strip 1 -C /usr/src/asterisk-g72x && \
     cd /usr/src/asterisk-g72x && \
     ./autogen.sh && \
-    ./configure --prefix=/usr --with-bcg729 --enable-$G72X_CPUHOST && \
+    ./configure --prefix=/usr --with-bcg729 && \
     make && \
     make install && \
-    \
-#### Add USB Dongle support
-    git clone https://github.com/rusxakep/asterisk-chan-dongle /usr/src/asterisk-chan-dongle && \
-    cd /usr/src/asterisk-chan-dongle && \
-    git checkout tags/$DONGLE_VERSION && \
-    ./bootstrap && \
-    ./configure --with-astversion=$ASTERISK_VERSION && \
-    make && \
-    make install && \
-    \
-    ldconfig && \
     \
 ### Cleanup
     mkdir -p /var/run/fail2ban && \
@@ -278,10 +258,6 @@ RUN echo "Package: libxml2*" > /etc/apt/preferences.d/libxml2 && \
     mkdir -p /var/log/apache2 && \
     mkdir -p /var/log/httpd && \
     update-alternatives --set php /usr/bin/php${PHP_VERSION} && \
-    \
-### Zabbix setup
-    echo '%zabbix ALL=(asterisk) NOPASSWD:/usr/sbin/asterisk' >> /etc/sudoers && \
-    \
 ### Setup for data persistence
     mkdir -p /assets/config/var/lib/ /assets/config/home/ && \
     mv /home/asterisk /assets/config/home/ && \
@@ -295,9 +271,6 @@ RUN echo "Package: libxml2*" > /etc/apt/preferences.d/libxml2 && \
     mkdir -p /assets/config/var/spool && \
     mv /var/spool/cron /assets/config/var/spool/ && \
     ln -s /data/var/spool/cron /var/spool/cron && \
-    mkdir -p /var/run/mongodb && \
-    rm -rf /var/lib/mongodb && \
-    ln -s /data/var/lib/mongodb /var/lib/mongodb && \
     ln -s /data/var/run/asterisk /var/run/asterisk && \
     rm -rf /var/spool/asterisk && \
     ln -s /data/var/spool/asterisk /var/spool/asterisk && \
